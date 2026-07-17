@@ -63,7 +63,7 @@ export async function geocode(
   url.search = new URLSearchParams({
     q: query,
     format: "json",
-    limit: "1",
+    limit: "5",
     addressdetails: "0",
   }).toString();
   const res = await fetch(url, {
@@ -76,12 +76,17 @@ export async function geocode(
     lat: string;
     lon: string;
     display_name: string;
+    class?: string;
   }[];
   if (!data.length) return null;
+  // Prefer actual places/boundaries over airports, buildings, etc. —
+  // "Sarasota FL" should mean the city, not the aerodrome.
+  const best =
+    data.find((d) => d.class === "place" || d.class === "boundary") ?? data[0];
   return {
-    lat: parseFloat(data[0].lat),
-    lng: parseFloat(data[0].lon),
-    label: data[0].display_name.split(",").slice(0, 3).join(",").trim(),
+    lat: parseFloat(best.lat),
+    lng: parseFloat(best.lon),
+    label: best.display_name.split(",").slice(0, 2).join(",").trim(),
   };
 }
 
@@ -190,15 +195,28 @@ out center tags;`;
     .filter((c): c is Court => c !== null)
     .sort((a, b) => a.distanceKm - b.distanceKm);
 
-  // De-dupe nodes that sit inside a mapped way (same facility twice)
+  // Cluster: parks map each pitch separately, so N unnamed courts within
+  // ~150m are one facility — collapse them and surface the count.
   const deduped: Court[] = [];
   for (const c of courts) {
-    const dup = deduped.find(
+    const near = deduped.find(
       (d) =>
-        haversineKm(c.lat, c.lng, d.lat, d.lng) < 0.05 &&
-        (d.name === c.name || d.name.startsWith("Pickleball")),
+        haversineKm(c.lat, c.lng, d.lat, d.lng) < 0.15 &&
+        (d.name === c.name ||
+          d.name.startsWith("Pickleball") ||
+          c.name.startsWith("Pickleball")),
     );
-    if (!dup) deduped.push(c);
+    if (near) {
+      near.courtCount = (near.courtCount ?? 1) + (c.courtCount ?? 1);
+      // A named facility wins over "Pickleball court"
+      if (near.name.startsWith("Pickleball") && !c.name.startsWith("Pickleball"))
+        near.name = c.name;
+      near.lit = near.lit ?? c.lit;
+      near.surface = near.surface ?? c.surface;
+      near.address = near.address ?? c.address;
+    } else {
+      deduped.push({ ...c });
+    }
   }
   return deduped;
 }
