@@ -7,6 +7,7 @@ const LINKS = [
   { href: "/", label: "Library" },
   { href: "/train", label: "Train" },
   { href: "/pros", label: "Pros" },
+  { href: "/courts", label: "Courts" },
   { href: "/progress", label: "Progress" },
 ];
 
@@ -28,7 +29,7 @@ export default function Nav() {
             Dink<span className="text-optic">Lab</span>
           </span>
         </Link>
-        <nav className="flex items-center gap-1">
+        <nav className="flex items-center gap-1 overflow-x-auto whitespace-nowrap [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {LINKS.map(({ href, label }) => {
             const active =
               href === "/" ? pathname === "/" : pathname.startsWith(href);
@@ -36,7 +37,7 @@ export default function Nav() {
               <Link
                 key={href}
                 href={href}
-                className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors duration-200 ${
+                className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors duration-200 sm:px-4 ${
                   active
                     ? "bg-optic text-court-950"
                     : "text-chalk-dim hover:bg-court-800 hover:text-chalk"
