@@ -55,10 +55,64 @@ export function haversineKm(
 
 const UA = { "User-Agent": "DinkLab/1.0 (pickleball court finder)" };
 
-/** Nominatim geocoding — turns "Sarasota FL" into coordinates. */
+/**
+ * Geocoding — turns "Sarasota FL" / "90210" / an address into coordinates.
+ * Photon (OSM-based, fuzzy, abbreviation-tolerant) primary; Nominatim
+ * fallback. Nominatim alone maps "Sarasota FL" to a bus stop — ask me how
+ * I know.
+ */
 export async function geocode(
   query: string,
 ): Promise<{ lat: number; lng: number; label: string } | null> {
+  try {
+    const purl = new URL("https://photon.komoot.io/api/");
+    purl.search = new URLSearchParams({ q: query, limit: "5" }).toString();
+    const pres = await fetch(purl, {
+      headers: UA,
+      signal: AbortSignal.timeout(6000),
+      next: { revalidate: 86400 },
+    });
+    if (pres.ok) {
+      const pdata = (await pres.json()) as {
+        features: {
+          geometry: { coordinates: [number, number] };
+          properties: {
+            name?: string;
+            type?: string;
+            state?: string;
+            country?: string;
+            postcode?: string;
+          };
+        }[];
+      };
+      // Prefer settlements over counties/houses when both match
+      const ranked = [...pdata.features].sort((a, b) => {
+        const score = (f: (typeof pdata.features)[number]) =>
+          ["city", "town", "village", "district"].includes(
+            f.properties.type ?? "",
+          )
+            ? 0
+            : f.properties.type === "county" || f.properties.type === "state"
+              ? 1
+              : 2;
+        return score(a) - score(b);
+      });
+      const best = ranked[0];
+      if (best) {
+        const p = best.properties;
+        return {
+          lat: best.geometry.coordinates[1],
+          lng: best.geometry.coordinates[0],
+          label: [p.name ?? p.postcode, p.state ?? p.country]
+            .filter(Boolean)
+            .join(", "),
+        };
+      }
+    }
+  } catch {
+    // fall through to Nominatim
+  }
+
   const url = new URL("https://nominatim.openstreetmap.org/search");
   url.search = new URLSearchParams({
     q: query,
