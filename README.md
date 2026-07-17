@@ -1,5 +1,7 @@
 # DinkLab 🎾
 
+**Live:** https://dinklab-three.vercel.app · **Repo:** https://github.com/troysfields/dinklab
+
 **Train what the tape shows.** Upload your pickleball gameplay or drill footage, tag it by skill focus and level, and DinkLab pairs every clip with current training content — drills, technique breakdowns, and strategy — so you always know what to work on next.
 
 ## Stack
