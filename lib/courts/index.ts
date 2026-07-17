@@ -94,11 +94,15 @@ type OverpassElement = {
   tags?: Record<string, string>;
 };
 
-/** Public Overpass instances — rotated because each rate-limits per IP. */
+/**
+ * Public Overpass instances — rotated because each rate-limits per IP.
+ * Order chosen from measured behavior on Vercel egress IPs (July 2026):
+ * maps.mail.ru is fast and lenient; overpass-api.de is authoritative backup.
+ * (kumi.systems hangs and osm.jp has an expired cert — deliberately excluded.)
+ */
 const OVERPASS_ENDPOINTS = [
+  "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
   "https://overpass-api.de/api/interpreter",
-  "https://overpass.kumi.systems/api/interpreter",
-  "https://overpass.osm.jp/api/interpreter",
 ];
 
 /** OpenStreetMap Overpass — every mapped pickleball facility in radius. */
@@ -109,12 +113,11 @@ export async function searchOverpass(
 ): Promise<Court[]> {
   const r = Math.round(radiusKm * 1000);
   // sport=pickleball is the canonical tag; also catch multi-sport values
+  // Single cheap clause — the canonical sport=pickleball tag (also matches
+  // multi-sport values). Cost matters: shared-IP quotas reject heavy queries.
   const q = `
-[out:json][timeout:12];
-(
-  nwr["sport"~"pickleball"](around:${r},${lat},${lng});
-  nwr["leisure"="sports_centre"]["name"~"[Pp]ickle"](around:${r},${lat},${lng});
-);
+[out:json][timeout:10];
+nwr["sport"~"pickleball"](around:${r},${lat},${lng});
 out center tags;`;
 
   let data: { elements: OverpassElement[] } | null = null;
