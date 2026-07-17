@@ -63,6 +63,9 @@ export async function PATCH(req: Request, { params }: Params) {
       contentType: "application/json",
       addRandomSuffix: false,
       allowOverwrite: true,
+      // Blob overwrites propagate through the CDN; keep staleness ≤60s (the
+      // minimum). The UI holds optimistic state, so edits still feel instant.
+      cacheControlMaxAge: 60,
     });
     return NextResponse.json({ video: updated });
   } catch (err) {

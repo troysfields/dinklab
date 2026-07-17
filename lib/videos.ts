@@ -47,10 +47,11 @@ export async function getVideo(id: string): Promise<VideoMeta | null> {
 }
 
 export async function deleteVideo(meta: VideoMeta): Promise<void> {
+  // Only pass genuine blob-store URLs to del() — a corrupt meta record with a
+  // foreign URL must not make the whole delete fail.
   const urls = [meta.videoUrl, meta.thumbUrl].filter(
-    (u): u is string => Boolean(u),
+    (u): u is string => Boolean(u) && u!.includes(".blob.vercel-storage.com"),
   );
-  // del() accepts URLs; meta blob is addressed by pathname via list lookup
   const { blobs } = await list({ prefix: `meta/${meta.id}.json` });
   await del([...urls, ...blobs.map((b) => b.url)]);
 }
