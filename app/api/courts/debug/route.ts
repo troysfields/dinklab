@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { geocode, searchOverpass } from "@/lib/courts";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -46,5 +47,21 @@ export async function GET() {
       }
     }),
   );
-  return NextResponse.json({ results });
+  // Run the real pipeline and surface the raw error
+  let pipeline: unknown;
+  try {
+    const geo = await geocode("Sarasota FL");
+    if (!geo) {
+      pipeline = "geocode returned null";
+    } else {
+      const courts = await searchOverpass(geo.lat, geo.lng, 15);
+      pipeline = { ok: true, geo: geo.label, courts: courts.length };
+    }
+  } catch (err) {
+    pipeline =
+      err instanceof Error
+        ? `${err.name}: ${err.message} | cause: ${String((err as NodeJS.ErrnoException).cause ?? "none")}`
+        : String(err);
+  }
+  return NextResponse.json({ results, pipeline });
 }
